@@ -430,11 +430,9 @@ def spawn_worker(
     env["PYTHONPATH"] = f"{cwd}{os.pathsep}{existing_path}" if existing_path else str(cwd)
     proc = None
     files_manifest = None
-    heartbeat = None
+    heartbeat = download_heartbeat.new_path()
     try:
-        if use_xet:
-            heartbeat = download_heartbeat.new_path()
-            args = [*args, "--heartbeat", heartbeat]
+        args = [*args, "--heartbeat", heartbeat]
         if files:
             files_manifest = write_files_manifest(files)
             args = [*args, "--files-json", files_manifest]

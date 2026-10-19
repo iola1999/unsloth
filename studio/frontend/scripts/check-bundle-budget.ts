@@ -281,8 +281,11 @@ export const BUDGET = {
   // Naming a chat export after its model, title and day (#12586) adds 615 B raw / 65 B transfer (6,842,183 ->
   // 6,842,798 B raw, 2,060,321 -> 2,060,386 B transfer against 46e4f50bea, one machine and build, Node 24,
   // 96 chunks): the name builder sits beside the chat exporters in the eager chat chunk. Raised by that growth.
-  transferBytes: 2_060_794,
-  rawBytes: 6_843_649,
+  // Worker-based Hub download rates add 550 B raw / 185 B transfer to the eager download manager
+  // (6,843,566 -> 6,844,116 B raw, 2,055,820 -> 2,056,005 B transfer against 0a96b9de3,
+  // Node 22.23.0, 96 chunks). Raise by that growth to preserve the existing margin.
+  transferBytes: 2_060_979,
+  rawBytes: 6_844_199,
 };
 
 // The chunk count is reported but not budgeted. Splitting a page out of the entry raises it while lowering the

@@ -14,7 +14,7 @@ from typing import Callable, Generic, Optional, Sequence, TypeVar
 
 from loggers import get_logger
 
-from hub.utils import download_manifest
+from hub.utils import download_heartbeat, download_manifest
 from hub.utils import download_registry
 from hub.utils import inventory_scan as hf_cache_scan
 from hub.utils.state_dir import RepoType
@@ -665,7 +665,7 @@ async def snapshot_progress_response(
 ) -> dict:
     """Async wrapper: offloads the blocking cache walk and never raises."""
     try:
-        return await asyncio.to_thread(
+        reading = await asyncio.to_thread(
             compute_snapshot_progress,
             repo_type = repo_type,
             repo_id = repo_id,
@@ -678,6 +678,16 @@ async def snapshot_progress_response(
             variant_file_matcher = variant_file_matcher,
             expected_files_resolver = expected_files_resolver,
         )
+        # A retry can replace the worker while the cache scan is running.
+        proc = registry.get_process(job_key)
+        if proc is not None and proc.poll() is None:
+            args = proc.args
+            if "--heartbeat" in args:
+                index = args.index("--heartbeat") + 1
+                transfer = download_heartbeat.read_transfer(args[index])
+                if registry.get_process(job_key) is proc and transfer is not None:
+                    reading["transfer_progress"] = transfer
+        return reading
     except Exception as e:
         logger.warning(
             "Error checking %s download progress for %s: %s: %s",

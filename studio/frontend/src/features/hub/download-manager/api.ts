@@ -124,7 +124,15 @@ export interface TransportStatus {
   resumable: boolean;
 }
 
+export interface DownloadTransferProgress {
+  attempt_id: string;
+  network_bytes: number;
+  elapsed_seconds: number;
+  age_seconds: number;
+}
+
 export interface DownloadProgressResponse {
+  transfer_progress?: DownloadTransferProgress | null;
   downloaded_bytes: number;
   completed_bytes: number;
   complete_on_disk: boolean;

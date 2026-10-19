@@ -106,7 +106,9 @@ def _shared_setup_4(_run_inline, entry, monkeypatch):
     monkeypatch.setattr(
         downloads,
         "_registry",
-        SimpleNamespace(get_job = lambda _key: SimpleNamespace(state = "running")),
+        SimpleNamespace(
+            get_process = lambda _key: None, get_job = lambda _key: SimpleNamespace(state = "running")
+        ),
     )
 
 
@@ -326,11 +328,14 @@ def _patch_gguf_progress(monkeypatch, entry, requirement):
 
 
 def _idle_registry():
-    return SimpleNamespace(get_job = lambda _key: SimpleNamespace(state = "idle"))
+    return SimpleNamespace(
+        get_process = lambda _key: None, get_job = lambda _key: SimpleNamespace(state = "idle")
+    )
 
 
 def _running_registry(completed_baseline_bytes):
     return SimpleNamespace(
+        get_process = lambda _key: None,
         get_job = lambda _key: SimpleNamespace(state = "running"),
         get_job_metadata = lambda _key: SimpleNamespace(
             completed_baseline_bytes = completed_baseline_bytes,
@@ -3923,7 +3928,9 @@ def _unresolvable_variant_metadata(
     monkeypatch.setattr(
         downloads,
         "_registry",
-        SimpleNamespace(get_job = lambda _key: SimpleNamespace(state = state)),
+        SimpleNamespace(
+            get_process = lambda _key: None, get_job = lambda _key: SimpleNamespace(state = state)
+        ),
     )
 
 
@@ -3970,6 +3977,7 @@ def test_gguf_progress_unknown_hashes_keeps_a_total_under_a_full_baseline(monkey
         downloads,
         "_registry",
         SimpleNamespace(
+            get_process = lambda _key: None,
             get_job = lambda _key: SimpleNamespace(state = "running"),
             get_job_metadata = lambda _key: SimpleNamespace(completed_baseline_bytes = 130),
         ),

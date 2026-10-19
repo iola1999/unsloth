@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import threading
@@ -16,14 +17,31 @@ def new_path() -> str:
     return os.path.join(tempfile.gettempdir(), f"unsloth-dl-heartbeat-{uuid.uuid4().hex}")
 
 
-def read(path: Optional[str]) -> Optional[int]:
+def _read(path: Optional[str]) -> dict:
     if not path:
-        return None
+        return {}
     try:
-        text = Path(path).read_text(encoding = "utf-8").strip()
-    except OSError:
+        payload = json.loads(Path(path).read_text(encoding = "utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def read(path: Optional[str]) -> Optional[int]:
+    return _read(path).get("activity_bytes")
+
+
+def read_transfer(path: Optional[str]) -> Optional[dict]:
+    payload = _read(path)
+    network_bytes = payload.get("network_bytes")
+    if network_bytes is None:
         return None
-    return int(text) if text.isdigit() else None
+    return {
+        "attempt_id": Path(path).name,
+        "network_bytes": network_bytes,
+        "elapsed_seconds": payload["elapsed_seconds"],
+        "age_seconds": max(0.0, time.time() - payload["updated_at"]),
+    }
 
 
 def age(path: Optional[str]) -> Optional[float]:
@@ -54,20 +72,41 @@ class HeartbeatWriter:
         self._path = path
         self._interval = interval
         self._total = 0
+        self._started_at = time.monotonic()
+        self._network_bytes: Optional[int] = None
+        self._transfer_elapsed = None
+        self._transfer_updated_at = None
         self._flushed_at = float("-inf")
         self._lock = threading.Lock()
 
-    def add(self, n: int) -> None:
+    def add(
+        self,
+        n: int,
+        *,
+        transfer: bool = False,
+    ) -> None:
         with self._lock:
             self._total += n
             now = time.monotonic()
+            if transfer:
+                self._network_bytes = (self._network_bytes or 0) + n
+                self._transfer_elapsed = now - self._started_at
+                self._transfer_updated_at = time.time()
             if now - self._flushed_at < self._interval:
                 return
             self._flushed_at = now
             tmp = f"{self._path}.tmp"
             try:
                 with open(tmp, "w", encoding = "utf-8") as handle:
-                    handle.write(str(self._total))
+                    json.dump(
+                        {
+                            "activity_bytes": self._total,
+                            "network_bytes": self._network_bytes,
+                            "elapsed_seconds": self._transfer_elapsed,
+                            "updated_at": self._transfer_updated_at,
+                        },
+                        handle,
+                    )
                 os.replace(tmp, self._path)
             except OSError:
                 pass

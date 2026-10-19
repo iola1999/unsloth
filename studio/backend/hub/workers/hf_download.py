@@ -1063,9 +1063,14 @@ def _progress_class(heartbeat: str | None) -> type | None:
     writer = HeartbeatWriter(heartbeat)
 
     class _Heartbeat(hf_tqdm):
+        def __init__(self, *args, **kwargs):
+            # HF reports network transfer and file reconstruction on separate byte bars.
+            self._transfer = kwargs.get("name") == "huggingface_hub.snapshot_download.transfer"
+            super().__init__(*args, **kwargs)
+
         def update(self, n = 1):
             if n and n > 0:
-                writer.add(int(n))
+                writer.add(int(n), transfer = self._transfer)
             return super().update(n)
 
     return _Heartbeat

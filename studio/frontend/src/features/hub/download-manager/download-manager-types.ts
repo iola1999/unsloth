@@ -3,7 +3,7 @@
 
 import type { TransferSample } from "@/lib/transfer-stats";
 import type { InventoryHint } from "../inventory/types";
-import type { DownloadJobState } from "./api";
+import type { DownloadJobState, DownloadTransferProgress } from "./api";
 import type { DownloadKind, ResolvedTransport } from "./constants";
 import type { TransportConflictInfo } from "./types";
 
@@ -161,6 +161,8 @@ export interface JobRuntime {
   cancelRequested: boolean;
   watchdog: number | null;
   speedSamples: TransferSample[];
+  networkSamples: TransferSample[];
+  speedSource?: string;
   /**
    * A generation change seen on a status-only tick, held until a progress poll consumes it: status polls twice as often. */
   pendingGenerationChange?: boolean;
@@ -173,6 +175,7 @@ export interface JobRuntime {
 }
 
 export interface ProgressLike {
+  transfer_progress?: DownloadTransferProgress | null;
   downloaded_bytes: number;
   completed_bytes?: number;
   complete_on_disk?: boolean;

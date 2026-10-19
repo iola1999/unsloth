@@ -30,6 +30,7 @@ def scoped_progress(monkeypatch, tmp_path):
         downloads,
         "_registry",
         SimpleNamespace(
+            get_process = lambda _key: None,
             get_job = lambda _key: SimpleNamespace(state = state.job_state),
             get_job_metadata = lambda _key: metadata,
         ),

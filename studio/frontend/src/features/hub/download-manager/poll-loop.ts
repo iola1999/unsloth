@@ -11,7 +11,7 @@ import { checkDiskSpace } from "@/features/settings/low-disk-check";
 import { getHfToken } from "../stores/hf-token-store";
 import { bumpInventoryVersion } from "../stores/inventory-events";
 import { toast } from "@/lib/toast";
-import { appendSample, computeTransferStats } from "@/lib/transfer-stats";
+import { applySpeedSample } from "./download-speed";
 import {
   getActiveDatasetDownloads,
   getActiveModelDownloads,
@@ -232,6 +232,7 @@ function markPollFailure(key: string, rt: JobRuntime): void {
   rt.pollFailureStartedAt ??= now;
   if (now - rt.pollFailureStartedAt < POLL_DEGRADED_AFTER_MS) return;
   rt.speedSamples.length = 0;
+  rt.networkSamples.length = 0;
   patchJob(key, {
     error: POLL_DEGRADED_MESSAGE,
     bytesPerSec: 0,
@@ -388,21 +389,6 @@ async function finalizeTerminalStatus(
   }
 }
 
-  // Rolling-window rate, withheld until the window is trustworthy: an EMA publishing its first sample verbatim gave "753d 5h left" (#7667). 0 hides both labels.
-function applySpeedSample(
-  rt: JobRuntime,
-  downloadedBytes: number,
-  expectedBytes: number,
-  nowMs: number,
-): { bytesPerSec: number; etaSeconds: number } {
-  appendSample(rt.speedSamples, nowMs / 1000, downloadedBytes);
-  const stats = computeTransferStats(rt.speedSamples, expectedBytes);
-  return {
-    bytesPerSec: stats.stable ? stats.rateBytesPerSecond : 0,
-    etaSeconds: stats.stable ? stats.etaSeconds : 0,
-  };
-}
-
 function reconcileProgressAndSpeed(
   rt: JobRuntime,
   key: string,
@@ -433,8 +419,9 @@ function reconcileProgressAndSpeed(
   if (generationChanged) {
     // Another server owns this transfer, so the old samples describe a different run; the counter cannot say so, since a restart resumes from the same cache.
     rt.speedSamples.length = 0;
+    rt.networkSamples.length = 0;
   }
-  const speed = applySpeedSample(rt, downloadedBytes, expected, Date.now());
+  const speed = applySpeedSample(rt, downloadedBytes, expected, Date.now(), progressResp.transfer_progress);
   patchJob(key, {
     expectedBytes: expected,
     downloadedBytes,
@@ -509,6 +496,7 @@ async function tick(key: string): Promise<void> {
   }
   if (typeof document !== "undefined" && document.hidden) {
     rt.speedSamples.length = 0;
+    rt.networkSamples.length = 0;
     return;
   }
   if (rt.inFlight) return;
@@ -685,6 +673,7 @@ export async function startJob(
     cancelRequested: adoptingCancel,
     watchdog: null,
     speedSamples: [],
+    networkSamples: [],
     idleSinceMs: null,
     lastProgressPollAt: null,
     pollFailureStartedAt: null,

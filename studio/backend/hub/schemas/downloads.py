@@ -155,7 +155,16 @@ class TransportStatusResponse(BaseModel):
     resumable: bool
 
 
+class DownloadTransferProgress(BaseModel):
+    attempt_id: str
+    network_bytes: int
+    elapsed_seconds: float
+    age_seconds: float
+
+
 class DownloadProgressResponse(BaseModel):
+    # Network statistics from the current worker; disk counters still determine completion.
+    transfer_progress: Optional[DownloadTransferProgress] = None
     downloaded_bytes: int
     # Finalized-blob bytes only: registry-loss completion fallbacks key off this, so a partial is not
     # mistaken for a finished download.
